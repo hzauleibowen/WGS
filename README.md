@@ -59,10 +59,72 @@ done
 
 ## step 4 过滤VCF
 ```
-忘了
+#../softwore/gatk-4.2.6.0/gatk --java-options "-Xmx4g" VariantFiltration -R camel.fa -V  all.raw.snp.vcf --filter-expression "QD < 2.0 || MQ < 40.0 || FS > 60.0 \
+#|| SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filter-name 'SNP_filter'  -O all.filter.snp.vcf
+
+
+../softwore/gatk-4.2.6.0/gatk --java-options "-Xmx4g" VariantFiltration -R camel.fa -V  all.raw.indel.vcf --filter-expression "QD < 2.0 || MQ < 40.0 || FS > 60.0 \
+|| SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filter-name 'indel_filter'  -O all.filter.indel.vcf
 ```
 ## step 5 群体结构
 ```
+基因流分析
+vcftools --gzvcf /data/dongwenjun/new_camel/quality/camel.vcf.gz --plink --out camel_non_missing
+plink -real-ref-alleles --chr-set 36 --file camel_non_missing --indep-pairwise 50 5 0.5 --out camel_non_missing_filterLD
+plink -real-ref-alleles --chr-set 36 --file camel_non_missing --extract camel_non_missing_filterLD.prune.in --make-bed --out camel_non_missing_filterLD
+plink -real-ref-alleles --chr-set 36 --bfile camel_non_missing_filterLD --recode --out camel_non_missing_filterLD
+
+plink -real-ref-alleles --chr-set 36 --bfile camel_non_missing_filterLD --freq --missing --within pop.txt --out camel_non_missing_filterLD
+gzip camel_non_missing_filterLD.frq.strat
+python2 /data/dongwenjun/software/plink2treemix.py camel_non_missing_filterLD.frq.strat.gz camel_non_missing_filterLD.treemix.frq.gz
+gunzip camel_non_missing_filterLD.frq.strat
+gunzip camel_non_missing_filterLD.treemix.frq.gz
+awk 'BEGIN{print "scaffold_pos\tscaffold\tpos"}{split($2,pos,":");print $2"\t"pos[1]"\t"pos[2]}' camel_non_missing_filterLD.map > camel_non_missing_filterLD.positions
+paste camel_non_missing_filterLD.positions camel_non_missing_filterLD.treemix.frq > camel_non_missing_filterLD.frequencies
+awk '{printf $0; for(i = 4; i <= NF; i++){
+                split($i,values,",")
+                if((values[1]+values[2])>0) freq=values[1]/(values[1]+values[2])
+                else freq=0
+                printf freq"\t"};printf "\n"}' camel_non_missing_filterLD.frequencies > camel_non_missing_filterLD.frequencies2
+mv camel_non_missing_filterLD.frequencies2 camel_non_missing_filterLD.frequencies
+awk 'BEGIN{scaffold="";pos=0;newpos=0};{if($2==scaffold){newpos=pos+$3}else{scaffold=$2;pos=newpos};chpos=pos+$3;print $0,chpos}' camel_non_missing_filterLD.frequencies > camel_non_missing_filterLD.frequencies.newpos
+gzip camel_non_missing_filterLD.treemix.frq
+
+
+
+for i in {0..10}
+do
+ for j in {1..5}
+ do
+  treemix -i camel_non_missing_filterLD.treemix.frq.gz -m $i -o m10_rep5_500_outgroup/migration_${i}_dup${j} -k 500 -root Wild
+ done
+done
+
+for i in {0..10}
+do
+ treemix -i camel_non_missing_filterLD.treemix.frq.gz -m $i -o m4/migration_${i} -k 500 -root Wild
+done
+
+for (i in 0:10){
++ pdf(paste('migration_',i,'_tree','.pdf', sep = ""), width = 8, height = 10)
++ plot_tree(paste('migration_',i,sep=""))
++ dev.off()
++ }
+
+for (i in 0:10){
++ pdf(paste('migration_',i,'_resid','.pdf', sep = ""), width = 8, height = 10)
++ plot_resid(paste('migration_',i,sep=""), 'breed')
++ dev.off()
++ }
+
+祖先成分分析
+#!/bin/bash
+cat K |while read id
+do
+ arr=(${id})
+ K=${arr[0]}
+ admixture --cv -j10 camel_filterLD.bed $K | tee CV/log${K}.out
+done
 ```
 ## step6 选择信号的
 ```
