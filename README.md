@@ -116,7 +116,8 @@ for (i in 0:10){
 + plot_resid(paste('migration_',i,sep=""), 'breed')
 + dev.off()
 + }
-
+```
+```
 祖先成分分析
 #!/bin/bash
 cat K |while read id
