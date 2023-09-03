@@ -70,7 +70,9 @@ done
 1.拆分染色体
 bcftools view --threads 20 -r 1 domestic.vcf.gz -Oz -o chr/1.vcf.gz
 2.定相（拆分染色体会比较快）
-java -Xmx2000m -jar /data/dongwenjun/miniconda3/share/beagle-5.2_21Apr21.304-0/beagle.jar gt=/data/dongwenjun/camel/couple_pop_selection/domestic/chr/1.vcf.gz out=/data/dongwenjun/camel/couple_pop_selection/domestic/phased/1.vcf.gz ne=100 nthreads=2
+java -Xmx2000m -jar /data/dongwenjun/miniconda3/share/beagle-5.2_21Apr21.304-0/beagle.jar\
+ gt=/data/dongwenjun/camel/couple_pop_selection/domestic/chr/1.vcf.gz \
+out=/data/dongwenjun/camel/couple_pop_selection/domestic/phased/1.vcf.gz ne=100 nthreads=2
 两个群体都需做定相
 3.计算群体间xpehh值（循环计算合并一般耗时半天到一天，看文件大小，单个染色体计算再合并比较快）
 library(vcfR)
@@ -87,8 +89,10 @@ if (i == 1) { wgscan2 <- scan2 } else { wgscan2 <- rbind(wgscan2, scan2) }
 }
 xpehh.cgu_eut <- ies2xpehh(scan_pop1 = wgscan1,scan_pop2 = wgscan2,popname1 = "Sunite",popname2 = "domestic",standardize=FALSE)
 #按窗口计算
-cr.cgu <- calc_candidate_regions(xpehh.cgu_eut,threshold = -10000,window_size = 50000,overlap = 25000,min_n_mrk = 10, min_n_extr_mrk = 1, min_perc_extr_mrk = 0,join_neighbors = FALSE)
-write.table(cr.cgu,file="/data/dongwenjun/camel/couple_pop_selection/xpehh/s_d/Sunite_domestic_window_result.txt",sep="\t",row.names=F,col.names=T,quote=F)
+cr.cgu <- calc_candidate_regions(xpehh.cgu_eut,threshold = -10000,window_size = 50000,overlap = 25000,min_n_mrk = 10,
+min_n_extr_mrk = 1, min_perc_extr_mrk = 0,join_neighbors = FALSE)
+write.table(cr.cgu,file="/data/dongwenjun/camel/couple_pop_selection/xpehh/s_d/Sunite_domestic_window_result.txt",
+sep="\t",row.names=F,col.names=T,quote=F)
 
 
 方法2 iHS：
@@ -105,13 +109,16 @@ if (i == 1) { wgscan1 <- scan1 } else { wgscan1 <- rbind(wgscan1, scan1) }
 }
 ihs <- ihh2ihs(wgscan1)
 #按窗口计算
-result_windows <- calc_candidate_regions(ihs,threshold = -1000,window_size = 50000,overlap = 25000,min_n_mrk = 10,min_n_extr_mrk = 1, min_perc_extr_mrk = 0,join_neighbors =FALSE,pval = TRUE)
-write.table(result_windows,file="/data/dongwenjun/camel/single_pop_selection/Sunite_ihs_window.txt",sep="\t",row.names=F,col.names=T,quote=F)
+result_windows <- calc_candidate_regions(ihs,threshold = -1000,window_size = 50000,overlap = 25000,min_n_mrk = 10,
+min_n_extr_mrk = 1, min_perc_extr_mrk = 0,join_neighbors =FALSE,pval = TRUE)
+write.table(result_windows,file="/data/dongwenjun/camel/single_pop_selection/Sunite_ihs_window.txt",sep="\t",
+row.names=F,col.names=T,quote=F)
 
 
 方法3 Fst：
 1.两两群体间计算
-vcftools --vcf camel_control_remove11.vcf --weir-fst-pop Sunite.txt --weir-fst-pop Wild.txt --out Sunite_Wild --fst-window-size 50000 --fst-window-step 25000
+vcftools --vcf camel_control_remove11.vcf --weir-fst-pop Sunite.txt --weir-fst-pop Wild.txt --out\
+ Sunite_Wild --fst-window-size 50000 --fst-window-step 25000
 2.负值为计算有误，变为0
 cat Sunite_Wild.windowed.weir.fst | awk '{if ($6>0){print $6}else{print 0}}' > tt
 paste Sunite_Wild.windowed.weir.fst tt |cut -f 1-5,7 > Sunite_Wild1.windowed.weir.fst_none-.txt
@@ -119,8 +126,10 @@ paste Sunite_Wild.windowed.weir.fst tt |cut -f 1-5,7 > Sunite_Wild1.windowed.wei
 
 方法4 PI：
 1.单个群体计算
-vcftools --vcf /data/dongwenjun/camel/quality/control_breed_vcf/Sunite.vcf --window-pi 50000 --window-pi-step 25000 --out Sunite
-vcftools --vcf /data/dongwenjun/camel/quality/control_breed_vcf/Wild.vcf --window-pi 50000 --window-pi-step 25000 --out Wild
+vcftools --vcf /data/dongwenjun/camel/quality/control_breed_vcf/Sunite.vcf --window-pi 50000\
+ --window-pi-step 25000 --out Sunite
+vcftools --vcf /data/dongwenjun/camel/quality/control_breed_vcf/Wild.vcf --window-pi 50000\
+ --window-pi-step 25000 --out Wild
 2.取-log10(s/w)转为两两群体间比较的形式
 先确保两个文件窗口一致，对PI值取比值
 #取出两个文件PI值所在列
