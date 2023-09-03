@@ -1,0 +1,57 @@
+## WGS 流程
+## step 1 去接头比对
+
+```
+ls *_1.fq.gz|while read id;
+do
+echo "fastp -q 20 -u 50 -l 35 -n 15 -i ${id} ${id%%_*}_2.fq.gz -o ../01.clean_data/${id%%_*}_1.fastq.gz   ../01.clean_data/${id%%_*}_2.fastq.gz --cut_tail --n_base_limit 3 --length_required 60 --correction --thread 4 " >>setp1.sh;
+done
+
+cd 01.clean_data
+ls *_clean_1.fastq.gz|while read id;
+do
+echo "bwa mem -t 12  -k 32 -M -R '@RG\tID:foo\tPL:illumina\tSM:${id%%_*}' \
+/public/agis/liuyuwen_group/leibowen/ref/camel_new/camel.fa ${id} ${id%%_*}_clean_2.fastq.gz | samtools view -Sb - > ../02.bwa/${id%%_*}.unsorted.bam" >> setp2_bwa.sh;
+done
+```
+## step 2 排序，标记重复
+```
+ls *.sorted.bam >last
+#ls *.sorted.bam|cut -d "." -f 1 >last 
+cat last | while read id
+do
+name=${id%%.*}
+echo "samtools sort -@ 6 -m 4G -O bam -o ${name}.sorted.bam ${id}" >> bam.sort.sh
+done
+
+cat last | while read id
+do
+name=${id%%.*}
+echo "java -jar /public/home/leibowen/software/picard/build/libs/picard.jar MarkDuplicates I=${id} O=${id%%.*}.markdup.bam M=${id%%.*}.markdup.metrc.csv" >> markdup.commandlines.sh
+done
+```
+## step 3 按染色体callg vcf
+```
+1每个个体call gvcf
+cat chr|while read id ;do
+echo "gatk  HaplotypeCaller -R /public/agis/liuyuwen_group/leibowen/ref/camel_new/camel.fa -I ../02.bwa/FP150000305TL_L01_226.markdup.bam --emit-ref-confidence GVCF --min-base-quality-score 10 -L ${id} -O ${id}_FP150000305TL_L01_226.g.vcf.gz" >>226.sh
+done
+
+2按染色体合并GCVF 
+ls *.g.vcf >GVCF.list
+cat chr|while read id;
+do
+echo "gatk --java-options -Xmx20g CombineGVCFs -R  /public/agis/liuyuwen_group/leibowen/ref/camel_new/camel.fa --variant GVCF.list -L ${id} -O ./VCF/${id}.g.vcf.gz" >>merge_VCF.sh;
+done
+
+3 每个染色体基因分型
+ls *.g.vcf.gz|while read id;do 
+echo "gatk --java-options -Xmx20g GenotypeGVCFs  -R /public/agis/liuyuwen_group/leibowen/ref/camel_new/camel.fa  -V ${id} -O ../COMVCF/${id%%.*}.vcf.gz" >>GenotypeGVCFs.sh;
+done
+
+```
+
+### 合并cvf
+```
+ gatk --java-options "-Xmx20g " MergeVcfs -I raw_vcf.list -O camel.merge_raw.vcf.gz
+```
